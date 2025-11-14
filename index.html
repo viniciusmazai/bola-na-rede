@@ -45,6 +45,8 @@
   <button class="btn" onclick="save()">SALVAR</button>
 
   <script>
+    console.log("Iniciando Bola na Rede MVP..."); // Debug: Abra Console pra ver
+
     // Big numbers
     let redes = new Decimal(0);
     let gps = new Decimal(0);
@@ -64,7 +66,7 @@
     ];
 
     function format(num) {
-      return num.toStringWithDecimalPlaces(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      return num.toStringWithDecimalPlaces(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");
     }
 
     function updateGPS() {
@@ -117,6 +119,9 @@
         updateGPS();
         document.getElementById("prestigeLevel").innerText = prestigeLevel;
         renderAtletas();
+        console.log("Prestige ativado! Multi agora:", prestigeMult.toString());
+      } else {
+        console.log("Precisa de 1M Reais pra Prestige.");
       }
     }
 
@@ -133,12 +138,14 @@
       redes = redes.plus(1);
       if ('vibrate' in navigator) navigator.vibrate(50);
       updateDisplay();
+      console.log("Tap! Reais agora:", redes.toString()); // Debug tap
     };
 
     document.getElementById("goldenBtn").onclick = () => {
       goldenActive = true;
       goldenEnd = Date.now() + 77000;
       document.getElementById("goldenBtn").style.display = "none";
+      console.log("Golden ativado por 77s!");
     };
 
     function updateDisplay() {
@@ -146,6 +153,7 @@
       if (redes.gte(100000) && estadioLevel === 1) {
         estadioLevel = 2;
         document.getElementById("estadio").innerText = "Várzea Lotada (+15%)";
+        console.log("Estádio upado!");
       }
     }
 
@@ -184,6 +192,7 @@
         lastTime = data.lastTime;
         estadioLevel = data.estadioLevel;
         document.getElementById("prestigeLevel").innerText = prestigeLevel;
+        console.log("Save loaded! Reais:", redes.toString());
       }
     }
 
@@ -193,6 +202,7 @@
     renderAtletas();
     setInterval(gameLoop, 1000);
     setInterval(save, 5000);
+    console.log("MVP Loaded! Teste taps e buys.");
   </script>
 </body>
 </html>

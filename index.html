@@ -9,11 +9,14 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', sans-serif; background: #228B22; color: white; text-align: center; padding: 20px; }
     h1 { font-size: 24px; margin: 10px 0; }
-    .bola { width: 180px; height: 180px; margin: 30px auto; cursor: pointer; transition: transform 0.1s; }
+    .bola { width: 180px; height: 180px; margin: 30px auto; cursor: pointer; transition: transform 0.1s; position: relative; }
     .bola:active { transform: scale(0.9); }
+    .rede-popup { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 32px; color: yellow; font-weight: bold; opacity: 0; transition: opacity 0.3s; z-index: 10; }
+    .rede-popup.show { opacity: 1; }
     .stats { font-size: 18px; margin: 10px 0; font-weight: bold; }
     .atleta { background: #006400; margin: 8px; padding: 12px; border-radius: 8px; text-align: left; }
     .btn { background: #FFD700; color: black; border: none; padding: 10px 16px; margin: 5px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+    .btn:disabled { background: gray; cursor: not-allowed; }
     .golden { background: gold !important; animation: pulse 1s infinite; }
     @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } }
     .estadio { font-size: 16px; margin: 10px; }
@@ -33,6 +36,7 @@
       <path d="M25 65 Q50 55 75 65" stroke="white" stroke-width="3" fill="none"/>
       <path d="M30 80 Q50 70 70 80" stroke="white" stroke-width="3" fill="none"/>
     </svg>
+    <div class="rede-popup" id="redePopup">REDE!</div>
   </div>
 
   <div id="goldenBtn" style="display:none">
@@ -41,13 +45,23 @@
 
   <div id="atletas"></div>
 
-  <button class="btn" onclick="prestige()">PRESTIGE (Nível <span id="prestigeLevel">0</span>)</button>
-  <button class="btn" onclick="save()">SALVAR</button>
+  <button class="btn" id="prestigeBtn">PRESTIGE (Nível <span id="prestigeLevel">0</span>)</button>
+  <button class="btn" onclick="saveGame()">SALVAR</button>
 
   <script>
-    console.log("Iniciando Bola na Rede MVP..."); // Debug: Abra Console pra ver
+    console.log("=== Bola na Rede MVP v2 - Debug Mode ===");
 
-    // Big numbers
+    // Fallback pra Decimal
+    let Decimal;
+    try {
+      Decimal = window.Decimal; // Break Infinity
+      console.log("Break Infinity loaded!");
+    } catch (e) {
+      console.warn("Decimal fallback to Number");
+      Decimal = Number;
+    }
+
+    // Vars
     let redes = new Decimal(0);
     let gps = new Decimal(0);
     let prestigeLevel = 0;
@@ -58,24 +72,27 @@
     let estadioLevel = 1;
 
     const atletas = [
-      { nome: "Garoto Laje", base: 10, prod: 0.1, owned: 0 },
-      { nome: "Zagueiro Muro", base: 50, prod: 0.5, owned: 0 },
-      { nome: "Driblador Poeira", base: 200, prod: 2, owned: 0 },
-      { nome: "Chuta-Fome", base: 1000, prod: 8, owned: 0 },
-      { nome: "Técnico Raiz", base: 5000, prod: 20, owned: 0 }
+      { nome: "Garoto Laje", base: new Decimal(10), prod: new Decimal(0.1), owned: 0 },
+      { nome: "Zagueiro Muro", base: new Decimal(50), prod: new Decimal(0.5), owned: 0 },
+      { nome: "Driblador Poeira", base: new Decimal(200), prod: new Decimal(2), owned: 0 },
+      { nome: "Chuta-Fome", base: new Decimal(1000), prod: new Decimal(8), owned: 0 },
+      { nome: "Técnico Raiz", base: new Decimal(5000), prod: new Decimal(20), owned: 0 }
     ];
 
     function format(num) {
-      return num.toStringWithDecimalPlaces(2).replace(/\\B(?=(\\d{3})+(?!\\d))/g, ",");
+      let str = num.toString();
+      if (typeof num === 'number') str = num.toFixed(2);
+      return str.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
     function updateGPS() {
       gps = new Decimal(0);
       atletas.forEach(a => {
-        gps = gps.plus(new Decimal(a.prod).times(a.owned));
+        gps = gps.plus(a.prod.times(a.owned));
       });
       gps = gps.times(prestigeMult).times(estadioBonus());
       document.getElementById("gps").innerText = format(gps);
+      console.log("GPS updated:", gps.toString());
     }
 
     function estadioBonus() {
@@ -84,12 +101,15 @@
 
     function buy(index) {
       const a = atletas[index];
-      const cost = new Decimal(a.base).times(new Decimal(1.15).pow(a.owned));
+      const cost = a.base.times(new Decimal(1.15).pow(a.owned));
       if (redes.gte(cost)) {
         redes = redes.minus(cost);
         a.owned++;
         updateGPS();
         renderAtletas();
+        console.log(`Bought ${a.nome}! Owned: ${a.owned}`);
+      } else {
+        console.log("Not enough Reais!");
       }
     }
 
@@ -97,12 +117,12 @@
       const container = document.getElementById("atletas");
       container.innerHTML = "";
       atletas.forEach((a, i) => {
-        const cost = new Decimal(a.base).times(new Decimal(1.15).pow(a.owned));
+        const cost = a.base.times(new Decimal(1.15).pow(a.owned));
         const div = document.createElement("div");
         div.className = "atleta";
         div.innerHTML = `
           <strong>${a.nome}</strong> (x${a.owned})<br>
-          Produz: ${a.prod}/s | Custo: ${format(cost)}
+          Produz: ${format(a.prod)}/s | Custo: ${format(cost)}
           <button class="btn" onclick="buy(${i})" ${redes.lt(cost) ? 'disabled' : ''}>Comprar</button>
         `;
         container.appendChild(div);
@@ -119,90 +139,117 @@
         updateGPS();
         document.getElementById("prestigeLevel").innerText = prestigeLevel;
         renderAtletas();
-        console.log("Prestige ativado! Multi agora:", prestigeMult.toString());
+        console.log("Prestige! Multi:", prestigeMult.toString());
       } else {
-        console.log("Precisa de 1M Reais pra Prestige.");
+        console.log("Precisa 1M Reais pra Prestige.");
       }
     }
 
     function goldenRede() {
-      if (!goldenActive && Math.random() < 0.1) {
+      if (!goldenActive && Math.random() < 0.2) {  // Mais chance pra teste
         document.getElementById("goldenBtn").style.display = "block";
         setTimeout(() => {
           document.getElementById("goldenBtn").style.display = "none";
-        }, 15000);
+        }, 10000);  // 10s show
+        console.log("Golden triggered!");
       }
     }
 
-    document.getElementById("bola").onclick = () => {
-      redes = redes.plus(1);
-      if ('vibrate' in navigator) navigator.vibrate(50);
-      updateDisplay();
-      console.log("Tap! Reais agora:", redes.toString()); // Debug tap
-    };
+    // Event Listeners
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log("DOM loaded - Binding events");
+      document.getElementById("bola").onclick = () => {
+        redes = redes.plus(1);
+        if ('vibrate' in navigator) navigator.vibrate(50);
+        updateDisplay();
+        document.getElementById("redePopup").classList.add("show");
+        setTimeout(() => document.getElementById("redePopup").classList.remove("show"), 500);
+        console.log("Tap! Reais:", redes.toString());
+      };
 
-    document.getElementById("goldenBtn").onclick = () => {
-      goldenActive = true;
-      goldenEnd = Date.now() + 77000;
-      document.getElementById("goldenBtn").style.display = "none";
-      console.log("Golden ativado por 77s!");
-    };
+      document.getElementById("goldenBtn").onclick = () => {
+        goldenActive = true;
+        goldenEnd = Date.now() + 77000;
+        document.getElementById("goldenBtn").style.display = "none";
+        console.log("Golden activated!");
+      };
+
+      document.getElementById("prestigeBtn").onclick = prestige;
+
+      console.log("Events bound!");
+    });
 
     function updateDisplay() {
       document.getElementById("redes").innerText = format(redes);
       if (redes.gte(100000) && estadioLevel === 1) {
         estadioLevel = 2;
         document.getElementById("estadio").innerText = "Várzea Lotada (+15%)";
-        console.log("Estádio upado!");
+        console.log("Estádio upgraded!");
       }
     }
 
     function gameLoop() {
       const now = Date.now();
       const delta = Math.min((now - lastTime) / 1000, 86400);
-      const earn = gps.times(delta);
-      redes = redes.plus(earn);
+      let earn = gps.times(delta);
       if (goldenActive && now < goldenEnd) {
-        redes = redes.plus(gps.times(6).times(delta));
+        earn = earn.times(7);
       } else {
         goldenActive = false;
       }
+      redes = redes.plus(earn);
       lastTime = now;
       updateDisplay();
       updateGPS();
       renderAtletas();
       goldenRede();
-      save();
+      saveGame();
     }
 
-    function save() {
-      const data = { redes: redes.toString(), gps: gps.toString(), atletas, prestigeLevel, prestigeMult: prestigeMult.toString(), lastTime, estadioLevel };
+    function saveGame() {
+      const data = {
+        redes: redes.toString(),
+        gps: gps.toString(),
+        atletas: atletas.map(a => ({...a, base: a.base.toString(), prod: a.prod.toString()})),
+        prestigeLevel,
+        prestigeMult: prestigeMult.toString(),
+        lastTime,
+        estadioLevel
+      };
       localStorage.setItem("bolaNaRedeSave", JSON.stringify(data));
     }
 
-    function load() {
+    function loadGame() {
       const saved = localStorage.getItem("bolaNaRedeSave");
       if (saved) {
-        const data = JSON.parse(saved);
-        redes = new Decimal(data.redes);
-        gps = new Decimal(data.gps);
-        Object.assign(atletas, data.atletas);
-        prestigeLevel = data.prestigeLevel;
-        prestigeMult = new Decimal(data.prestigeMult);
-        lastTime = data.lastTime;
-        estadioLevel = data.estadioLevel;
-        document.getElementById("prestigeLevel").innerText = prestigeLevel;
-        console.log("Save loaded! Reais:", redes.toString());
+        try {
+          const data = JSON.parse(saved);
+          redes = new Decimal(data.redes);
+          gps = new Decimal(data.gps);
+          data.atletas.forEach((savedA, i) => {
+            atletas[i].owned = savedA.owned;
+            atletas[i].base = new Decimal(savedA.base);
+            atletas[i].prod = new Decimal(savedA.prod);
+          });
+          prestigeLevel = data.prestigeLevel;
+          prestigeMult = new Decimal(data.prestigeMult);
+          lastTime = data.lastTime;
+          estadioLevel = data.estadioLevel;
+          document.getElementById("prestigeLevel").innerText = prestigeLevel;
+          console.log("Loaded! Reais:", redes.toString());
+        } catch (e) {
+          console.error("Load error:", e);
+        }
       }
     }
 
     // Init
-    load();
+    loadGame();
     updateGPS();
     renderAtletas();
     setInterval(gameLoop, 1000);
-    setInterval(save, 5000);
-    console.log("MVP Loaded! Teste taps e buys.");
+    setInterval(saveGame, 5000);
+    console.log("=== MVP v2 Loaded! Abra Console pra debug. Toque na bola! ===");
   </script>
 </body>
 </html>
